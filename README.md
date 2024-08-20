@@ -1,5 +1,5 @@
 
-#Python program = BottleClosureAverageCTDVals.py
+Python program = BottleClosureAverageCTDVals.py
 
 This program will take derived CTD data that has been processed using SBE software per CalCOFI's guidelines. 
 
