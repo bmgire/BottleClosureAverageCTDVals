@@ -1,13 +1,14 @@
 
 Python program = BottleClosureAverageCTDVals.py
 
+The program will average data from bottle closure to 4 seconds (user editable) before the bottle closure.
+
+-------------------------
 This program will take derived CTD data that has been processed using SBE software per CalCOFI's guidelines. 
 
 The derived data will already need to be in an .asc file (again per the CalCOFI instructions). 
 
 You will also need to have the .bl file for the cast. 
-
-The program will average data from bottle closure to 4 seconds (user editable) before the bottle closure.
 
 It uses the .bl file to get the bottle closure scan number and is currently coded to use the beginning scan. 
 
@@ -23,7 +24,7 @@ The program currently only processes one .asc and .bl file at a time,
 
 Though I plan to modify the program to process multiple derived cast files at once. 
 
-#############################################################################################
+-------------------------
 
 Copyright 2024 Ben Gire - using the MIT License
 
