@@ -23,6 +23,7 @@ from tkinter import *
 from tkinter import filedialog
 from tkinter import messagebox
 import pandas as pd
+import numpy as np
 import os
 
 ##################################################################################################
@@ -75,6 +76,39 @@ def browseFilesBl():
     display_bl_fullpath.configure(text="" +blPath)
 
 ############################################
+# For capturing formating
+def detect_format(value):
+    if 'e' in value or 'E' in value:  # Scientific notation detection
+        return 'scientific'
+    elif '.' in value:  # Floating-point detection
+        return 'float'
+    else:
+        return 'integer'
+
+############################################
+# Store Significant Digits
+def count_significant_digits(value):
+    try:
+        if 'e' in value or 'E' in value:  # Scientific notation
+            base, exp = value.split('e')
+            base = base.replace('.', '').replace('-', '')  # Remove decimal and minus sign for counting
+            return len(base)
+        else:
+            return len(value.replace('.', '').replace('-', ''))  # Non-scientific counting
+    except:
+        return None
+
+############################################
+# Restore the original formatting to each column based on the stored information
+def format_value(value, format_type, sig_digits):
+    if format_type == 'scientific':
+        return np.format_float_scientific(value, precision=sig_digits - 1)
+    elif format_type == 'float':
+        return f"{value:.{sig_digits}g}"  # General float formatting with significant digits
+    else:  # Integer or default
+        return str(int(value))
+
+############################################
 # Convert bl to CSV - The pandas library needs a .csv file, and the .bl has invalid data non-csv data in the first 2 rows. 
 def blToCSV():
     global blCsvTempPath 
@@ -123,7 +157,24 @@ def createAverages():
     # print(ascDataDecimal)
     ####################
 
-    ascData = pd.read_csv(ascPath, encoding='latin-1')
+    # Read the CSV as strings to preserve formatting for analysis later
+    ascDataRaw = pd.read_csv(ascPath, dtype=str, encoding='latin-1')
+
+    #Drop date field from averaging. 
+    ascDataRaw = ascDataRaw.drop(ascDataRaw.columns[1], axis=1)
+
+    format_info = {}
+    for column in ascDataRaw.columns:
+        format_info[column] = detect_format(ascDataRaw[column].iloc[0])
+
+    sig_digits_info = {}
+    for column in ascDataRaw.columns:
+        sig_digits_info[column] = count_significant_digits(ascDataRaw[column].iloc[0])
+
+    ascDataNumeric = ascDataRaw.apply(pd.to_numeric)
+
+    ######################################################
+    #ascData = pd.read_csv(ascPath, encoding='latin-1')
 
     for btl in range(bottlesRange):
         scanCollection = []
@@ -135,11 +186,23 @@ def createAverages():
             scanCollection.append(backScan)
             backScan +=1
 
-        allScansData = ascData.loc[ascData['Scan'].isin(scanCollection)]
+        allScansData = ascDataNumeric.loc[ascDataNumeric['Scan'].isin(scanCollection)]
         
+
         #Below excludes the columns for scan number and date from the mean calclations. 
-        mean = allScansData.iloc[:, 2:].mean(axis=0)
+        #mean = allScansData.iloc[:, 1:].mean(axis=0)
+        mean = allScansData.mean(axis=0)
         mean = mean.to_frame().T
+        
+
+        # restore formating
+        for column in mean.columns:
+            mean[column] = mean[column].apply(
+            lambda x: format_value(x, format_info[column], sig_digits_info[column])
+        )
+        # drop the scans column
+        mean = mean.drop(mean.columns[0], axis=1) 
+
         mean.insert(0, 'Btl', " ")
         mean.insert(1, 'SecAvgd', " ")
         mean.insert(2, 'StartScan', " ")
@@ -158,7 +221,12 @@ def createAverages():
 
         result = pd.concat([result, mean], sort=False)
     
-    # Once out of the loop, write result to file. 
+    # Once out of the loop:
+    # Write result to file.
+    
+
+   
+
     resultFilename = ascFilename[:-4] + "_btlAvgd.csv"
     resultPath = os.path.join(ascParent, resultFilename)
     result.to_csv(resultPath, index=False, sep=',')
