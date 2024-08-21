@@ -89,6 +89,55 @@ def blToCSV():
         fout.writelines(text)
     fp.close()
 
+
+def getPrecisionDictForColumns():
+    precision_dict = {
+                    'PrDM': 3, 
+                    'T090C': 4, 
+                    'C0S/m': 6, 
+                    'T190C': 4,
+                    'C1S/m': 6,
+                    'V0': 4,
+                    'V1': 4,
+                    'V2': 4,
+                    'V3': 4,
+                    'V4': 4,
+                    'V5': 4,
+                    'V6': 4,
+                    'V7': 4,
+                    'Sbeox0V': 4,
+                    'Sbeox1V': 4, 
+                    'Spar': 4, # scientific
+                    'Par': 4, # scientific
+                    'CStarAt0': 4,
+                    'CStarTr0': 4, 
+                    'FlECO-AFL': 4, 
+                    'Latitude': 5, 
+                    'Longitude': 5, 
+                    'DepSM': 3, 
+                    'Potemp090C': 4,
+                    'Potemp190C': 4,
+                    'Sal00': 4,
+                    'Sal11': 4,
+                    'Sigma-é00': 4,
+                    'Sigma-é11': 4,
+                    'Sbeox0ML/L': 4,
+                    'Sbeox1ML/L': 4,
+                    'Sbox0Mm/Kg': 3,
+                    'Sbox1Mm/Kg': 3,
+                    'Sbeox0PS': 3, 
+                    'Sbeox1PS': 3, 
+                    'Dm': 4,
+                    'Sva': 3,
+                    'T2-T190C': 4,
+                    'SecS-priS': 4, 
+                    'Flag': 4 # scientific
+                }
+    return precision_dict  
+
+def format_column(value, precision):
+    return f"{value:.{precision}f}"
+
 ############################################
 
 def createAverages():
@@ -134,11 +183,10 @@ def createAverages():
         allScansData = ascData.loc[ascData['Scan'].isin(scanCollection)]
         
         #Below excludes the columns for scan number and date from the mean calclations. 
-        #mean = allScansData.iloc[:, 1:].mean(axis=0)
         mean = allScansData.mean(axis=0)
         mean = mean.to_frame().T
        
-        # drop the scans column
+        # drop the 'scans' column
         mean = mean.drop(mean.columns[0], axis=1) 
 
         mean.insert(0, 'Btl', " ")
@@ -159,10 +207,14 @@ def createAverages():
 
         result = pd.concat([result, mean], sort=False)
     
-    # Once out of the loop:
-    # Write result to file.
-    
+    # We are now out of the loop for loop:
 
+    # set precision and formatting.
+    dict = getPrecisionDictForColumns()
+    result = result.round(dict)
+    
+    for col, precision in dict.items():
+        result[col] = result[col].apply(lambda x: format_column(x, precision))
    
 
     resultFilename = ascFilename[:-4] + "_btlAvgd.csv"
