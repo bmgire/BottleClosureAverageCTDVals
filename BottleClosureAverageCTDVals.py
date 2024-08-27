@@ -1,6 +1,6 @@
 
 ##################################################################################################
-# python program = BottleClosureAverageCTDVals.py
+# Python program = BottleClosureAverageCTDVals.py
 #################################################
 # The program will average CTD data from bottle closures to 4 seconds (user editable) before each bottle closure.
 # This program will take derived CTD data that has been processed using SBE software per CalCOFI's guidelines. 
@@ -27,20 +27,24 @@ import numpy as np
 import os
 
 ##################################################################################################
-
+# I'm using globals for filepaths and filenames since they are shared by different functions and 
+# the program is small. It would be easy to implment a files class and use getters and setters, if 
+# the program's complexity increased. 
 defaultPath = "/"
 ascPath = None
 ascParent = None    # To check if the asc and bl are from the same parent directory before processing. 
 blPath = None
 blParent = None    # To check if the asc and bl are from the same parent directory before processing. 
-blCsvTempPath = ""
 resultPath = None
 ascFilename = ""
 resultFilename = ""
-result = pd.DataFrame()
 
 ##################################################################################################
+
+############################################
+# Browse for the processed and exported .asc files 
 def browseFilesAsc():
+
     global defaultPath
     global ascPath
     global ascParent
@@ -58,9 +62,12 @@ def browseFilesAsc():
     defaultPath = ascParent.absolute().as_posix()
     display_asc_fullpath.configure(text="" +ascPath, anchor="w")
     
+
 ############################################
+# Browse for the processed and exported .bl files 
 def browseFilesBl():
-    global defaultPath      # This is required to update a global in python. 
+
+    global defaultPath    
     global blPath
     global blParent
     blPath = filedialog.askopenfilename(initialdir = defaultPath,
@@ -78,20 +85,28 @@ def browseFilesBl():
 
 ############################################
 # Convert bl to CSV - The pandas library needs a .csv file, and the .bl has invalid data non-csv data in the first 2 rows. 
+# Return the path to the new temp file. 
 def blToCSV():
-    global blCsvTempPath 
-
+     
     blCsvTempPath = os.path.join(blParent,"blTemp.csv")
-    fout = open(blCsvTempPath, "w+")   # This temp file is deleted upon program closure. 
+    fout = open(blCsvTempPath, "w+")  
     with open(blPath, 'r') as fp:
         # Excludes the first 2 rows of the file which are NOT csv. 
         text = fp.read().splitlines(True)[2:]
         fout.writelines(text)
     fp.close()
+    return blCsvTempPath
 
 
-def getPrecisionDictForColumns():
-    precision_dict = {
+############################################
+# Get the correct decimal places used for each field that is NOT using scientific notation. 
+# Is needed because the Pandas "means" function requires raw unformated numbers. 
+# Columns that use scientific notation are commented out but left in as a reference for 
+# the correct order of columns in the .asc file. 
+
+def getSignificantFiguresForColumns():
+
+    sigFig_dict = {
                     'PrDM': 3, 
                     'T090C': 4, 
                     'C0S/m': 6, 
@@ -133,26 +148,29 @@ def getPrecisionDictForColumns():
                     'SecS-priS': 4, 
                     #'Flag': 4 # scientific
                 }
-    return precision_dict  
+    return sigFig_dict  
 
-def format_column(value, precision):
-    return f"{value:.{precision}f}"
+def format_column(value, sigFig):
+    return f"{value:.{sigFig}f}"
+
 
 ############################################
+# Creates the result output file with the calclulated values. 
 
 def createAverages():
     global ascFilename
     global ascPath
-    global blCsvTempPath
-    global result
     global resultPath
     global resultFilename
-    
-    blToCSV()
 
+    # Local variable dataframe for the result file.     
+    result = pd.DataFrame()
+
+    # Get a true .csv file with the .bl data. 
+    blCsvTempPath = blToCSV()
     blData = pd.read_csv(blCsvTempPath, header=None,)
     
-    #Delete the temp CSV file. 
+    # Delete the temp CSV file. 
     if os.path.exists(blCsvTempPath):
         os.remove(blCsvTempPath)
         print(f"Temp file {blCsvTempPath} has been deleted.")
@@ -167,7 +185,7 @@ def createAverages():
 
     ascData = pd.read_csv(ascPath, encoding='latin-1')
 
-    #Drop DATETIME field from averaging. 
+    # Drop DATETIME field from averaging. 
     ascData = ascData.drop(ascData.columns[1], axis=1)
  
     for btl in range(bottlesRange):
@@ -182,11 +200,11 @@ def createAverages():
 
         allScansData = ascData.loc[ascData['Scan'].isin(scanCollection)]
         
-        #Below excludes the columns for scan number and date from the mean calclations. 
+        # Below excludes the columns for scan number and date from the mean calclations. 
         mean = allScansData.mean(axis=0)
         mean = mean.to_frame().T
        
-        # drop the 'scans' column
+        # Drop the 'scans' column - no need for average scan number. 
         mean = mean.drop(mean.columns[0], axis=1) 
 
         mean.insert(0, 'Btl', " ")
@@ -194,7 +212,7 @@ def createAverages():
         mean.insert(2, 'StartScan', " ")
         mean.insert(3, 'BackScan', " ")
 
-        #Adds bottle, seconds, and scan info as a recerence.
+        # Adds bottle, seconds, and scan info as a recerence.
         # Note: since the mean datafram only ever has 1 row, row is ALWAYS set to zero. 
         mean.loc[0, 'Btl'] = blData.loc[btl, BTL_NUM_COL]
         mean.loc[0, 'SecAvgd'] = secToAvg
@@ -207,30 +225,32 @@ def createAverages():
 
         result = pd.concat([result, mean], sort=False)
     
-    # We are now out of the loop for loop:
+    # We are now out of the loop for for loop. We can proceed with formatting our results. 
 
-    # set precision and formatting.
-    dict = getPrecisionDictForColumns()
+    # Set precision and formatting for most columns.
+    dict = getSignificantFiguresForColumns()
     result = result.round(dict)
     
     for col, precision in dict.items():
         result[col] = result[col].apply(lambda x: format_column(x, precision))
    
-
-   ################!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    # Update the 3 scientific notation columns to the correct formatting. 
     result['Spar'] = result['Spar'].apply(lambda x: '{:.4e}'.format(x))
     result['Par'] = result['Par'].apply(lambda x: '{:.4e}'.format(x))
     result['Flag'] = result['Flag'].apply(lambda x: '{:.4e}'.format(x))
 
+    # Save the results to a .csv file. 
     resultFilename = ascFilename[:-4] + "_btlAvgd.csv"
     resultPath = os.path.join(ascParent, resultFilename)
     result.to_csv(resultPath, index=False, sep=',')
     display_created_file.configure(text="" +resultFilename)
     display_created_fullpath.configure(text="" +resultPath)
 
-##################################################################################################   
 
+############################################
+# Creates the result output file with the calclulated values.
 def goToFile():
+
     myPath = Path(resultPath).parent
     
     try:
@@ -248,6 +268,7 @@ def goToFile():
 ######################################################
 
 def clearAll(): 
+
     global ascPath
     global blPath 
     global resultPath
@@ -264,31 +285,32 @@ def clearAll():
 ######################################################
 
 def on_closing():
-    global blCsvTempPath
-
+   
     # Perform any cleanup here
-    print("Window is closing. Performing cleanup...")
-    # if os.path.exists(blCsvTempPath):
-    #     os.remove(blCsvTempPath)
-    #     print(f"Temp file {blCsvTempPath} has been deleted.")
-    # else:
-    #     print("Found no temporary file to Delete.")
-
+    #print("Window is closing. Performing cleanup...")
+    
     window.destroy() 
 
 ##################################################################################################
+# Create the window using Tkinter. 
+
 window = Tk()
 window.title("Get Bottle Closure Average CTD Vals")
 window.geometry('900x325')
+
+# Below forces the 'on_closing' function to run if the application is closed for any reason. 
+# Right now there is no cleanup needed, but could become useful later. 
 window.protocol("WM_DELETE_WINDOW", on_closing)
 
 ##################################################################################################
 # Clear All Fields Button
+
 button_clearAll = Button(window, text = "Clear All", command = clearAll) 
 button_clearAll.grid(column=0, row=0, sticky="w")
 
 ############################################
 # Select Derived ASCII asc File for CTD data
+
 label_file_explorer = Label(window, text="Select Derived ASCII .asc File: ")                      
 label_file_explorer.grid(column=0,row=1, sticky="e")
 
@@ -306,6 +328,7 @@ display_asc_fullpath.grid(column=2, row=2, sticky="w")
 
 ############################################
 # Select bl file for bottle closure scan number and time information. 
+
 lbl = Label(window, text="Select .bl file: ")
 lbl.grid(column=0, row=3, sticky="e")
 
@@ -333,16 +356,19 @@ spin_Number.grid(column=1, row=5)
 
 ############################################
 # Empty row for spacing 
+
 label_empty = Label(window, text="")
 label_empty.grid(column=0, row=6, sticky="")
 
 ############################################
 # Create 4 second averages
+
 button_create_averages = Button(window, text = "Create Bottle Closure CTD Averages", command=createAverages)
 button_create_averages.grid(column=2, row=7, sticky="w")
 
 ############################################
-# Results  
+# Results GUI section
+
 label_empty = Label(window, text="File Created: ") 
 label_empty.grid(column=1, row=8, sticky="e")
 
@@ -356,22 +382,26 @@ display_created_fullpath = Label(window, text="", anchor="w", fg = "Brown")
 display_created_fullpath.grid(column=2,row=9, sticky="w")                            
 
 ############################################
-# Go to file
+# Go to file button
+
 button_goToFile = Button(window, text = "Go to created file", command=goToFile)
 button_goToFile.grid(column=2, row=10, sticky="w")
 
 ############################################
 # Empty row for spacing 
+
 label_empty = Label(window, text="")
 label_empty.grid(column=0, row=11, sticky="")
 
 ############################################
 # Empty row for spacing 
+
 label_empty = Label(window, text="")
 label_empty.grid(column=0, row=12, sticky="")
 
 ############################################
 # Exit Program Button
+
 button_Exit = Button(window, text = "Exit Program", command = on_closing) 
 button_Exit.grid(column=0, row=13, sticky="w")
 
