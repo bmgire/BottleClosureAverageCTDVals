@@ -107,8 +107,8 @@ def getPrecisionDictForColumns():
                     'V7': 4,
                     'Sbeox0V': 4,
                     'Sbeox1V': 4, 
-                    'Spar': 4, # scientific
-                    'Par': 4, # scientific
+                    #'Spar': 4, # scientific
+                    #'Par': 4, # scientific
                     'CStarAt0': 4,
                     'CStarTr0': 4, 
                     'FlECO-AFL': 4, 
@@ -131,7 +131,7 @@ def getPrecisionDictForColumns():
                     'Sva': 3,
                     'T2-T190C': 4,
                     'SecS-priS': 4, 
-                    'Flag': 4 # scientific
+                    #'Flag': 4 # scientific
                 }
     return precision_dict  
 
@@ -216,6 +216,11 @@ def createAverages():
     for col, precision in dict.items():
         result[col] = result[col].apply(lambda x: format_column(x, precision))
    
+
+   ################!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    result['Spar'] = result['Spar'].apply(lambda x: '{:.4e}'.format(x))
+    result['Par'] = result['Par'].apply(lambda x: '{:.4e}'.format(x))
+    result['Flag'] = result['Flag'].apply(lambda x: '{:.4e}'.format(x))
 
     resultFilename = ascFilename[:-4] + "_btlAvgd.csv"
     resultPath = os.path.join(ascParent, resultFilename)
