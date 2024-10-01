@@ -16,14 +16,11 @@
 # though I plan to modify the program to process multiple derived cast files at once. 
 ##################################################################################################
 
-from decimal import Decimal
-from multiprocessing import parent_process
 from pathlib import Path
 from tkinter import *
 from tkinter import filedialog
 from tkinter import messagebox
 import pandas as pd
-import numpy as np
 import os
 
 ##################################################################################################
