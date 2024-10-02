@@ -402,4 +402,6 @@ label_empty.grid(column=0, row=12, sticky="")
 button_Exit = Button(window, text = "Exit Program", command = on_closing) 
 button_Exit.grid(column=0, row=13, sticky="w")
 
+############################################
+# Call mainloop() after setting up the interface
 window.mainloop()
