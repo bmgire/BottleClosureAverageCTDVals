@@ -178,7 +178,9 @@ def createAverages():
 
     secToAvg = int(spin_Number.get())
     scansToAverage = secToAvg * 24 
+    #BottlesRange is the number of rows in the bldata. 
     bottlesRange = blData.shape[0]
+
 
     ascData = pd.read_csv(ascPath, encoding='latin-1')
 
@@ -191,13 +193,15 @@ def createAverages():
         backScan = int(startScan - scansToAverage + 1)
         backScanOriginal = backScan
 
+        # Get a list of all scans to include in your processing. 
         while(backScan <=startScan):            
             scanCollection.append(backScan)
             backScan +=1
 
+        # Include all rows from ascData if the scan is included in the desired scanCollection. 
         allScansData = ascData.loc[ascData['Scan'].isin(scanCollection)]
         
-        # Below excludes the columns for scan number and date from the mean calclations. 
+        # Get the mean and convert to a data frame.  
         mean = allScansData.mean(axis=0)
         mean = mean.to_frame().T
        
@@ -216,7 +220,7 @@ def createAverages():
         mean.loc[0, 'StartScan'] = startScan
         mean.loc[0, 'BackScan'] = backScanOriginal
 
-       # If result is empty, have it's structure set to mean
+       # If result is empty (first run through this loop), have it's structure set to mean.
         if result.empty:
             result.reindex_like(mean)
 
@@ -226,8 +230,12 @@ def createAverages():
 
     # Set precision and formatting for most columns.
     dict = getSignificantFiguresForColumns()
-    result = result.round(dict)
     
+    # The rounding code below is un-nessary because the loop below fixes the precision
+    # and the round method does not preserve significant figures.
+    # I'm leaving in as a reminder of this limitation of round.     
+    # result = result.round(dict)  
+
     for col, precision in dict.items():
         result[col] = result[col].apply(lambda x: format_column(x, precision))
    
